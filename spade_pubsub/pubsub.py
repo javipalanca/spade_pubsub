@@ -6,8 +6,8 @@ class PubSubMixin:
     This mixin provides PubSub support to SPADE agents.
     It must be used as superclass of a spade.Agent subclass.
     """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    async def _hook_plugin_after_connection(self, *args, **kwargs):
+        super()._hook_plugin_after_connection(*args, **kwargs)
         self.pubsub = self.client.summon(aioxmpp.PubSubClient)
 
     # ------------------------------------------OWNER USE CASES---------------------------------------------
