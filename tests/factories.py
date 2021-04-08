@@ -11,11 +11,11 @@ from spade_pubsub import PubSubMixin
 class MockedPubSubAgent(PubSubMixin, Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        #self._async_connect = CoroutineMock()
-        #self._async_register = CoroutineMock()
-        #self.conn_coro = Mock()
-        #self.conn_coro.__aexit__ = CoroutineMock()
-        #self.stream = Mock()
+        # self._async_connect = CoroutineMock()
+        # self._async_register = CoroutineMock()
+        # self.conn_coro = Mock()
+        # self.conn_coro.__aexit__ = CoroutineMock()
+        # self.stream = Mock()
 
 
 class MockedPubSubAgentFactory(factory.Factory):

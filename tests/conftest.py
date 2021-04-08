@@ -1,3 +1,5 @@
+import aioxmpp
+import aioxmpp.pubsub.xso as pubsub_xso
 import pytest
 from spade.container import Container
 from spade import quit_spade
@@ -18,3 +20,13 @@ def run_around_tests():
 @pytest.fixture(scope="module", autouse=True)
 def cleanup(request):
     quit_spade()
+
+
+@pubsub_xso.as_payload_class
+class SomePayload(aioxmpp.xso.XSO):
+    TAG = "spade.pubsub.test_service", "foo"
+
+
+@pytest.fixture()
+def payload():
+    return SomePayload()
