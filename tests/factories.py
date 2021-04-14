@@ -1,26 +1,21 @@
 import factory
-
-from unittest.mock import Mock
-
-from aioxmpp.testutils import CoroutineMock
 from spade.agent import Agent
 
 from spade_pubsub import PubSubMixin
 
 
-class MockedPubSubAgent(PubSubMixin, Agent):
+class PubSubAgent(PubSubMixin, Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # self._async_connect = CoroutineMock()
-        # self._async_register = CoroutineMock()
-        # self.conn_coro = Mock()
-        # self.conn_coro.__aexit__ = CoroutineMock()
-        # self.stream = Mock()
+        self.result = None
+
+    def callback(self, jid, node, item, message=None):
+        self.result = item.registered_payload.data
 
 
-class MockedPubSubAgentFactory(factory.Factory):
+class PubSubAgentFactory(factory.Factory):
     class Meta:
-        model = MockedPubSubAgent
+        model = PubSubAgent
 
     jid = "fake@jid"
     password = "fake_password"

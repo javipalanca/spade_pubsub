@@ -5,6 +5,13 @@ import aioxmpp.pubsub.xso as pubsub_xso
 from aioxmpp import JID
 
 
+@pubsub_xso.as_payload_class
+class Payload(aioxmpp.xso.XSO):
+    TAG = ("spade.pubsub", "payload")
+
+    data = aioxmpp.xso.Text(default=None)
+
+
 class PubSubMixin:
     """
     This mixin provides PubSub support to SPADE agents.
@@ -34,10 +41,10 @@ class PubSubMixin:
             return await self.pubsub.create(target_jid, target_node)
 
         async def delete(
-            self,
-            target_jid: str,
-            target_node: Optional[str],
-            redirect_uri: Optional[str] = None,
+                self,
+                target_jid: str,
+                target_node: Optional[str],
+                redirect_uri: Optional[str] = None,
         ):
             """
             Delete an existing node.
@@ -52,7 +59,7 @@ class PubSubMixin:
             )
 
         async def get_node_subscriptions(
-            self, target_jid: str, target_node: Optional[str]
+                self, target_jid: str, target_node: Optional[str]
         ) -> List[str]:
             """
             Return the subscriptions of other jids with a node.
@@ -97,16 +104,16 @@ class PubSubMixin:
             """
             target_jid = JID.fromstr(target_jid)
             request = await self.pubsub.get_items(target_jid, node=target_node)
-            return [item.registered_payload.TAG[1] for item in request.payload.items]
+            return [item.registered_payload for item in request.payload.items]
 
         # SUBSCRIBER USE CASES
 
         async def subscribe(
-            self,
-            target_jid: str,
-            target_node: Optional[str] = None,
-            subscription_jid: Optional[str] = None,
-            config=None,
+                self,
+                target_jid: str,
+                target_node: Optional[str] = None,
+                subscription_jid: Optional[str] = None,
+                config=None,
         ):
             """
             Subscribe to a node.
@@ -129,11 +136,11 @@ class PubSubMixin:
             )
 
         async def unsubscribe(
-            self,
-            target_jid: str,
-            target_node: Optional[str] = None,
-            subscription_jid: Optional[str] = None,
-            subid=None,
+                self,
+                target_jid: str,
+                target_node: Optional[str] = None,
+                subscription_jid: Optional[str] = None,
+                subid=None,
         ):
             """
             Unsubscribe from a node.
@@ -173,11 +180,11 @@ class PubSubMixin:
             return await self.pubsub.notify(target_jid, target_node)
 
         async def publish(
-            self,
-            target_jid: str,
-            target_node: str,
-            payload: str,
-            item_id: Optional[str] = None,
+                self,
+                target_jid: str,
+                target_node: str,
+                payload: str,
+                item_id: Optional[str] = None,
         ):
             """
             Publish an item to a node.
@@ -190,16 +197,15 @@ class PubSubMixin:
             """
             target_jid = JID.fromstr(target_jid)
 
-            @pubsub_xso.as_payload_class
-            class SpadePayload(aioxmpp.xso.XSO):
-                TAG = "spade.pubsub", payload
+            payload_node = Payload()
+            payload_node.data = payload
 
             return await self.pubsub.publish(
-                target_jid, target_node, SpadePayload(), id_=item_id
+                target_jid, target_node, payload_node, id_=item_id
             )
 
         async def retract(
-            self, target_jid: str, target_node: str, item_id: str, notify=False
+                self, target_jid: str, target_node: str, item_id: str, notify=False
         ):
             """
             Retract a previously published item from a node.
