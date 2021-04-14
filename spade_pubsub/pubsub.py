@@ -1,6 +1,7 @@
 from typing import Optional, List
 
 import aioxmpp
+import aioxmpp.pubsub.xso as pubsub_xso
 from aioxmpp import JID
 
 
@@ -95,7 +96,8 @@ class PubSubMixin:
                 target_node (str): Name of the PubSub node.
             """
             target_jid = JID.fromstr(target_jid)
-            return await self.pubsub.get_items(target_jid, node=target_node)
+            request = await self.pubsub.get_items(target_jid, node=target_node)
+            return [item.registered_payload.TAG[1] for item in request.payload.items]
 
         # SUBSCRIBER USE CASES
 
@@ -174,7 +176,7 @@ class PubSubMixin:
             self,
             target_jid: str,
             target_node: str,
-            payload: aioxmpp.xso.XSO,
+            payload: str,
             item_id: Optional[str] = None,
         ):
             """
@@ -183,12 +185,17 @@ class PubSubMixin:
             Args:
                 target_jid (str): Address of the PubSub service.
                 target_node (str): Name of the PubSub node to publish to.
-                payload (aioxmpp.xso.XSO): Registered payload to publish.
+                payload (str): Payload to publish.
                 item_id (str or None): Item ID to use for the item.
             """
             target_jid = JID.fromstr(target_jid)
+
+            @pubsub_xso.as_payload_class
+            class SpadePayload(aioxmpp.xso.XSO):
+                TAG = "spade.pubsub", payload
+
             return await self.pubsub.publish(
-                target_jid, target_node, payload, id_=item_id
+                target_jid, target_node, SpadePayload(), id_=item_id
             )
 
         async def retract(
