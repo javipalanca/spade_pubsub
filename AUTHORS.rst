@@ -5,7 +5,7 @@ Credits
 Development Lead
 ----------------
 
-* Javi Palanca <jpalanca@dsic.upv.es>
+* Javi Palanca
 
 Contributors
 ------------
