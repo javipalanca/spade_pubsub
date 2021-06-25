@@ -23,7 +23,7 @@ An agent can create a node where other agents may subscribe in order to receive 
 in such node.
 
 .. warning:: Due to limitations of the XMPP Publish-Subscribe standard, agents MUST be registered in the XMPP server
-with creation privileges in order to create nodes. (e.g. In Prosody include them in the admin list (`admins = {}`).
+             with creation privileges in order to create nodes. (e.g. In Prosody include them in the admin list (`admins = {}`).
 
 
 .. tip:: Note that you MUST substitute PUBSUB_JID with the address of the pubsub component that your XMPP server uses (e.g. "pubsub.localhost)
