@@ -3,6 +3,7 @@ from typing import Optional, List
 import aioxmpp
 import aioxmpp.pubsub.xso as pubsub_xso
 from aioxmpp import JID
+from loguru import logger
 
 
 @pubsub_xso.as_payload_class
@@ -19,8 +20,21 @@ class PubSubMixin:
     """
 
     async def _hook_plugin_after_connection(self, *args, **kwargs):
-        super()._hook_plugin_after_connection(*args, **kwargs)
+        try:
+            await super()._hook_plugin_after_connection(*args, **kwargs)
+        except AttributeError:
+            logger.debug("_hook_plugin_after_connection is undefined")
+
         self.pubsub = self.PubSubComponent(self.client)
+
+    async def _hook_plugin_before_connection(self, *args, **kwargs):
+        """
+        Overload this method to hook a plugin before connetion is done
+        """
+        try:
+            await super()._hook_plugin_before_connection(*args, **kwargs)
+        except AttributeError:
+            logger.debug("_hook_plugin_before_connection is undefined")
 
     class PubSubComponent:
         def __init__(self, client):
