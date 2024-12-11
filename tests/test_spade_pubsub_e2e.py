@@ -1,26 +1,27 @@
 #!/usr/bin/env python
 
 """Tests for `spade_pubsub` package."""
-
+import pytest
+from xml.etree.ElementTree import Element
 from spade.behaviour import OneShotBehaviour
 
 from .factories import PubSubAgentFactory
 
 
-XMPP_SERVER = "localhost"  # Make sure there is an XMPP server available at this address
+XMPP_SERVER = "araylop-vrain"  # Make sure there is an XMPP server available at this address
 
 
 AGENT_JID = f"pubsuba@{XMPP_SERVER}"
 PUBSUB_JID = f"pubsub.{XMPP_SERVER}"
 TEST_NODE = "Test_Node"
-TEST_PAYLOAD = "TEST_PAYLOAD"
+TEST_PAYLOAD = Element("test")
 
 
-def test_delete_node():
+@pytest.mark.asyncio
+async def test_delete_node():
     agent = PubSubAgentFactory(jid=AGENT_JID)
 
-    future = agent.start(auto_register=True)
-    assert future.result() is None
+    await agent.start(auto_register=True)
     assert agent.is_alive() is True
 
     class DeleteNodeBehaviour(OneShotBehaviour):
@@ -35,20 +36,19 @@ def test_delete_node():
 
     behaviour = DeleteNodeBehaviour()
     agent.add_behaviour(behaviour)
-    behaviour.join()
+    await behaviour.join()
 
     assert len(behaviour.exit_code) == 0
 
-    future = agent.stop()
-    future.result()
+    await agent.stop()
     assert agent.is_alive() is False
 
 
-def test_create_node():
+@pytest.mark.asyncio
+async def test_create_node():
     agent = PubSubAgentFactory(jid=AGENT_JID)
 
-    future = agent.start(auto_register=True)
-    assert future.result() is None
+    await agent.start(auto_register=True)
     assert agent.is_alive() is True
 
     class CreateNodeBehaviour(OneShotBehaviour):
@@ -60,20 +60,19 @@ def test_create_node():
 
     behaviour = CreateNodeBehaviour()
     agent.add_behaviour(behaviour)
-    behaviour.join()
+    await behaviour.join()
 
-    assert behaviour.exit_code[0][0] == TEST_NODE
+    assert any([f'node="{TEST_NODE}"' in i for i in behaviour.exit_code])
 
-    future = agent.stop()
-    future.result()
+    await agent.stop()
     assert agent.is_alive() is False
 
 
-def test_purge_node():
+@pytest.mark.asyncio
+async def test_purge_node():
     agent = PubSubAgentFactory(jid=AGENT_JID)
 
-    future = agent.start(auto_register=True)
-    assert future.result() is None
+    await agent.start(auto_register=True)
     assert agent.is_alive() is True
 
     class PurgeNodeBehaviour(OneShotBehaviour):
@@ -88,7 +87,7 @@ def test_purge_node():
 
     behaviour = PurgeNodeBehaviour()
     agent.add_behaviour(behaviour)
-    behaviour.join()
+    await behaviour.join()
 
     assert len(behaviour.exit_code[0]) == 1
     assert behaviour.exit_code[0][0].data == TEST_PAYLOAD
@@ -99,30 +98,31 @@ def test_purge_node():
     assert agent.is_alive() is False
 
 
-def test_subscribe_to_node():
+@pytest.mark.asyncio
+async def test_subscribe_to_node():
     agent = PubSubAgentFactory(jid=AGENT_JID)
 
-    future = agent.start(auto_register=True)
-    assert future.result() is None
+    await agent.start(auto_register=True)
     assert agent.is_alive() is True
 
     class SubscribeBehaviour(OneShotBehaviour):
         async def run(self):
+            await self.agent.pubsub.create(PUBSUB_JID, TEST_NODE)
             await self.agent.pubsub.subscribe(PUBSUB_JID, TEST_NODE)
             result = await self.agent.pubsub.get_node_subscriptions(
                 PUBSUB_JID, TEST_NODE
             )
+            await self.agent.pubsub.delete(PUBSUB_JID, TEST_NODE)
             self.kill(exit_code=result)
 
     behaviour = SubscribeBehaviour()
     agent.add_behaviour(behaviour)
-    behaviour.join()
+    await behaviour.join()
 
     assert len(behaviour.exit_code) == 1
     assert behaviour.exit_code[0] == AGENT_JID
 
-    future = agent.stop()
-    future.result()
+    await agent.stop()
     assert agent.is_alive() is False
 
 

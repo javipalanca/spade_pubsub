@@ -111,15 +111,18 @@ class PubSubMixin:
             """
             try:
                 res = await self.pubsub.get_nodes(target_jid, target_node)
+                res = [tostring(item) for item in res.get_payload()[0]]
             except IqError as res:
                 logger.error(f"Error deleting node <{target_node}>: {res}")
 
             return res
 
-        async def get_items(self, target_jid: str, target_node: Optional[str]):
+        async def get_items(self, target_jid: str, target_node: Optional[str]) -> List[str]:
             """
             Request all items at a service or collection node.
 
+            Returns a list of strings, each string representing an <item> element response
+            from the server
             Args:
                 target_jid (str): Addressof the PubSub service.
                 target_node (str): Name of the PubSub node.
@@ -228,7 +231,7 @@ class PubSubMixin:
             """
             try:
                 res = await self.pubsub.publish(target_jid, target_node, item_id, payload)
-            except IqError as res:
+            except Exception as res:
                 logger.error(f"Error publishing item <{item_id}> to node <{target_node}>: {res}")
 
             return res
