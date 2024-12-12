@@ -39,20 +39,24 @@ class PubSubMixin:
 
         # OWNER USE CASES
 
-        async def create(self, target_jid: str, target_node: Optional[str] = None):
+        async def create(
+            self,
+            target_jid: str,
+            target_node: Optional[str] = None,
+            config_form: Optional[slixmpp.plugins.xep_0004.stanza.form.Form] = None
+        ):
             """
             Create a new node at a service.
 
             Args:
                 target_jid (str): Address of the PubSub service.
                 target_node (str or None): Name of the PubSub node to create
+                config_form (Slixmpp Form): Dataform to configurate the node to create
             """
             try:
-                res = await self.pubsub.create_node(target_jid, target_node)
-            except IqError as res:
-                logger.error(f"Error creating node <{target_node}>: {res}")
-
-            return res
+                return await self.pubsub.create_node(target_jid, target_node, config=config_form)
+            except IqError as e:
+                logger.error(f"Error creating node <{target_node}>: {e}")
 
         async def delete(
             self,
@@ -67,11 +71,9 @@ class PubSubMixin:
                 target_node (str or None): Name of the PubSub node to delete.
             """
             try:
-                res = await self.pubsub.delete_node(target_jid, target_node)
-            except IqError as res:
-                logger.error(f"Error deleting node <{target_node}>: {res}")
-
-            return res
+                return await self.pubsub.delete_node(target_jid, target_node)
+            except IqError as e:
+                logger.error(f"Error deleting node <{target_node}>: {e}")
 
         async def get_node_subscriptions(
             self, target_jid: str, target_node: Optional[str]
@@ -83,8 +85,11 @@ class PubSubMixin:
                 target_jid (str): Address of the PubSub service.
                 target_node (str): Name of the node to query
             """
-            data: slixmpp.stanza.Iq = await self.pubsub.get_node_subscriptions(target_jid, target_node)
-            return [sub.attrib.get('jid') for sub in data.get_payload()[0][0]]
+            try:
+                data: slixmpp.stanza.Iq = await self.pubsub.get_node_subscriptions(target_jid, target_node)
+                return [sub.attrib.get('jid') for sub in data.get_payload()[0][0]]
+            except IqError as e:
+                logger.error(f"Error retrieving owner subscriptions from node <{target_node}>: {e}")
 
         async def purge(self, target_jid: str, target_node: Optional[str]):
             """
@@ -95,11 +100,9 @@ class PubSubMixin:
                 target_node (str): Name of the PubSub node
             """
             try:
-                res = await self.pubsub.purge(target_jid, target_node)
-            except IqError as res:
-                logger.error(f"Error purging node <{target_node}>: {res}")
-
-            return res
+                return await self.pubsub.purge(target_jid, target_node)
+            except IqError as e:
+                logger.error(f"Error purging node <{target_node}>: {e}")
 
         async def get_nodes(self, target_jid: str, target_node: Optional[str] = None):
             """
@@ -111,11 +114,9 @@ class PubSubMixin:
             """
             try:
                 res = await self.pubsub.get_nodes(target_jid, target_node)
-                res = [tostring(item) for item in res.get_payload()[0]]
-            except IqError as res:
-                logger.error(f"Error deleting node <{target_node}>: {res}")
-
-            return res
+                return [tostring(item) for item in res.get_payload()[0]]
+            except IqError as e:
+                logger.error(f"Error deleting node <{target_node}>: {e}")
 
         async def get_items(self, target_jid: str, target_node: Optional[str]) -> List[str]:
             """
@@ -126,10 +127,12 @@ class PubSubMixin:
             Args:
                 target_jid (str): Addressof the PubSub service.
                 target_node (str): Name of the PubSub node.
-                iterator (bool): Bool to enable iterator as returned object
             """
-            data: slixmpp.stanza.Iq = await self.pubsub.get_items(target_jid, target_node)
-            return [tostring(i[0]) for i in data.get_payload()[0][0]]
+            try:
+                data: slixmpp.stanza.Iq = await self.pubsub.get_items(target_jid, target_node)
+                return [tostring(i[0]) for i in data.get_payload()[0][0]]
+            except IqError as e:
+                logger.error(f"Error retrieving items from node <{target_node}>: {e}")
 
         # SUBSCRIBER USE CASES
 
@@ -156,10 +159,13 @@ class PubSubMixin:
                     subscribee=subscription_jid,
                     options=config
                 )
-            except IqError as res:
-                logger.error(f"Error subscribing to node <{target_node}>: {res}")
+                try:
+                    return res, res.get_payload()[0][0].attrib.get('subid')
+                except KeyError:
+                    return res, None
 
-            return res
+            except IqError as e:
+                logger.error(f"Error subscribing to node <{target_node}>: {e}")
 
         async def unsubscribe(
             self,
@@ -178,22 +184,20 @@ class PubSubMixin:
                 subid (str): Unique ID of the subscription to remove.
             """
             try:
-                res = await self.pubsub.unsubscribe(
+                return await self.pubsub.unsubscribe(
                     target_jid,
                     target_node,
                     subscribee=subscription_jid,
                     subid=subid,
                 )
-            except IqError as res:
-                logger.error(f"Error unsubscribing to node <{target_node}>: {res}")
-
-            return res
+            except IqError as e:
+                logger.error(f"Error unsubscribing to node <{target_node}>: {e}")
 
         def set_on_item_published(self, callback):
-            self.pubsub.on_item_published.connect(callback)
+            self.client.add_event_handler('pubsub_publish', callback)
 
         def set_on_item_retracted(self, callback):
-            self.pubsub.on_item_retracted.connect(callback)
+            self.client.add_event_handler('pubsub_retract', callback)
 
         # PUBLISHER USE CASES
 
@@ -207,11 +211,9 @@ class PubSubMixin:
                 target_node (str): Name of the PubSub node to send a notify from.
             """
             try:
-                res = await self.pubsub.publish(target_jid, target_node)
-            except IqError as res:
-                logger.error(f"Error notifying to node <{target_node}>: {res}")
-
-            return res
+                return await self.pubsub.publish(target_jid, target_node)
+            except IqError as e:
+                logger.error(f"Error notifying to node <{target_node}>: {e}")
 
         async def publish(
             self,
@@ -230,11 +232,9 @@ class PubSubMixin:
                 item_id (str or None): Item ID to use for the item.
             """
             try:
-                res = await self.pubsub.publish(target_jid, target_node, item_id, payload)
-            except Exception as res:
-                logger.error(f"Error publishing item <{item_id}> to node <{target_node}>: {res}")
-
-            return res
+                return await self.pubsub.publish(target_jid, target_node, item_id, payload)
+            except IqError as e:
+                logger.error(f"Error publishing item <{item_id}> to node <{target_node}>: {e}")
 
         async def retract(
             self, target_jid: str, target_node: str, item_id: str, notify=False
@@ -249,8 +249,6 @@ class PubSubMixin:
                 notify (bool): Flag indicating whether subscribers shall be notified about the retraction.
             """
             try:
-                res = await self.pubsub.retract(target_jid, target_node, item_id, notify)
-            except IqError as res:
-                logger.error(f"Error retracting item <{item_id}> to node <{target_node}>: {res}")
-
-            return res
+                return await self.pubsub.retract(target_jid, target_node, item_id, notify)
+            except IqError as e:
+                logger.error(f"Error retracting item <{item_id}> to node <{target_node}>: {e}")
