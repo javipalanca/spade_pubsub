@@ -1,8 +1,10 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 
-import slixmpp
+from slixmpp import ClientXMPP
 from slixmpp.exceptions import IqError
+from slixmpp.plugins.xep_0004.stanza.form import Form
 from slixmpp.plugins.xep_0060 import XEP_0060
+from slixmpp.stanza import Iq
 
 from loguru import logger
 from slixmpp.xmlstream import tostring
@@ -33,17 +35,16 @@ class PubSubMixin:
 
     class PubSubComponent:
         def __init__(self, client):
-            self.client: slixmpp.ClientXMPP = client
+            self.client: ClientXMPP = client
             self.client.register_plugin('xep_0060')
             self.pubsub: XEP_0060 = self.client['xep_0060']
 
         # OWNER USE CASES
-
         async def create(
             self,
             target_jid: str,
             target_node: Optional[str] = None,
-            config_form: Optional[slixmpp.plugins.xep_0004.stanza.form.Form] = None
+            config_form: Optional[Form] = None
         ):
             """
             Create a new node at a service.
@@ -86,7 +87,7 @@ class PubSubMixin:
                 target_node (str): Name of the node to query
             """
             try:
-                data: slixmpp.stanza.Iq = await self.pubsub.get_node_subscriptions(target_jid, target_node)
+                data: Iq = await self.pubsub.get_node_subscriptions(target_jid, target_node)
                 return [sub.attrib.get('jid') for sub in data.get_payload()[0][0]]
             except IqError as e:
                 logger.error(f"Error retrieving owner subscriptions from node <{target_node}>: {e}")
@@ -129,7 +130,7 @@ class PubSubMixin:
                 target_node (str): Name of the PubSub node.
             """
             try:
-                data: slixmpp.stanza.Iq = await self.pubsub.get_items(target_jid, target_node)
+                data: Iq = await self.pubsub.get_items(target_jid, target_node)
                 return [tostring(i[0]) for i in data.get_payload()[0][0]]
             except IqError as e:
                 logger.error(f"Error retrieving items from node <{target_node}>: {e}")
@@ -221,7 +222,7 @@ class PubSubMixin:
             target_node: str,
             payload: str,
             item_id: Optional[str] = None,
-        ):
+        ) -> Union[str, Iq]:
             """
             Publish an item to a node.
 
@@ -230,9 +231,16 @@ class PubSubMixin:
                 target_node (str): Name of the PubSub node to publish to.
                 payload (str): Payload to publish.
                 item_id (str or None): Item ID to use for the item.
+
+            Return:
+                The response of the server
             """
             try:
-                return await self.pubsub.publish(target_jid, target_node, item_id, payload)
+                res = await self.pubsub.publish(target_jid, target_node, item_id, payload)
+                try:
+                    return res.get_payload()[0][0][0].get('id')
+                except (IndexError, KeyError):
+                    return res
             except IqError as e:
                 logger.error(f"Error publishing item <{item_id}> to node <{target_node}>: {e}")
 

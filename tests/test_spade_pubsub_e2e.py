@@ -2,6 +2,7 @@
 
 """Tests for `spade_pubsub` package."""
 import pytest
+from uuid import uuid4
 from xml.etree.ElementTree import Element, fromstring
 from spade.behaviour import OneShotBehaviour
 
@@ -15,6 +16,7 @@ AGENT_JID = f"pubsuba@{XMPP_SERVER}"
 AGENT_JID_2 = f"pubsubb@{XMPP_SERVER}"
 PUBSUB_JID = f"pubsub.{XMPP_SERVER}"
 TEST_NODE = "Test_Node"
+ITEM_ID = str(uuid4())
 TEST_PAYLOAD = Element("test")
 TEST_PAYLOAD.text = "TESTING"
 
@@ -226,35 +228,39 @@ async def test_retract_item():
     await agent.start(auto_register=True)
     assert agent.is_alive() is True
 
+    agent.client.register_plugin('xep_0004')
+    config_form = agent.client.plugin["xep_0004"].make_form(ftype="submit")
+    config_form.addField('pubsub#persist_items', value=True)
+
     class PublishBehaviour(OneShotBehaviour):
         async def run(self):
-            for node in await self.agent.pubsub.get_nodes(PUBSUB_JID):
-                await self.agent.pubsub.delete(PUBSUB_JID, node[0])
+            await self.agent.pubsub.create(PUBSUB_JID, TEST_NODE, config_form)
+            # for node in await self.agent.pubsub.get_nodes(PUBSUB_JID):
+            #     await self.agent.pubsub.delete(PUBSUB_JID, node[0])
             await self.agent.pubsub.subscribe(PUBSUB_JID, TEST_NODE)
-            self.agent.item_id = await self.agent.pubsub.publish(
-                PUBSUB_JID, TEST_NODE, TEST_PAYLOAD
-            )
+            await self.agent.pubsub.publish(PUBSUB_JID, TEST_NODE, TEST_PAYLOAD, ITEM_ID)
             items = await self.agent.pubsub.get_items(PUBSUB_JID, TEST_NODE)
             self.kill(exit_code=items)
 
     publish_behaviour = PublishBehaviour()
     agent.add_behaviour(publish_behaviour)
-    publish_behaviour.join()
+    await publish_behaviour.join()
 
     assert len(publish_behaviour.exit_code) == 1
-    assert publish_behaviour.exit_code[0].data == TEST_PAYLOAD
+    assert TEST_PAYLOAD.tag in fromstring(publish_behaviour.exit_code[0]).tag
+    assert TEST_PAYLOAD.text == fromstring(publish_behaviour.exit_code[0]).text
 
     class RetractBehaviour(OneShotBehaviour):
         async def run(self):
-            await self.agent.pubsub.retract(PUBSUB_JID, TEST_NODE, self.agent.item_id)
+            await self.agent.pubsub.retract(PUBSUB_JID, TEST_NODE, ITEM_ID)
             items = await self.agent.pubsub.get_items(PUBSUB_JID, TEST_NODE)
+            await self.agent.pubsub.delete(PUBSUB_JID, TEST_NODE)
             self.kill(exit_code=items)
 
     retract_behaviour = RetractBehaviour()
     agent.add_behaviour(retract_behaviour)
-    retract_behaviour.join()
+    await retract_behaviour.join()
     assert len(retract_behaviour.exit_code) == 0
 
-    future = agent.stop()
-    future.result()
+    await agent.stop()
     assert agent.is_alive() is False
