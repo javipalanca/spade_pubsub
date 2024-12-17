@@ -1,4 +1,5 @@
 import factory
+import slixmpp.stanza
 from spade.agent import Agent
 
 from spade_pubsub import PubSubMixin
@@ -9,8 +10,8 @@ class PubSubAgent(PubSubMixin, Agent):
         super().__init__(*args, **kwargs)
         self.result = None
 
-    def callback(self, jid, node, item, message=None):
-        self.result = item.registered_payload.data
+    def callback(self, message: slixmpp.stanza.Message):
+        self.result = message.get_payload()
 
 
 class PubSubAgentFactory(factory.Factory):

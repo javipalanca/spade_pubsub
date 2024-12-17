@@ -1,16 +1,13 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 
-import aioxmpp
-import aioxmpp.pubsub.xso as pubsub_xso
-from aioxmpp import JID
+from slixmpp import ClientXMPP
+from slixmpp.exceptions import IqError
+from slixmpp.plugins.xep_0004.stanza.form import Form
+from slixmpp.plugins.xep_0060 import XEP_0060
+from slixmpp.stanza import Iq
+
 from loguru import logger
-
-
-@pubsub_xso.as_payload_class
-class Payload(aioxmpp.xso.XSO):
-    TAG = ("spade.pubsub", "payload")
-
-    data = aioxmpp.xso.Text(default=None)
+from slixmpp.xmlstream import tostring
 
 
 class PubSubMixin:
@@ -38,27 +35,34 @@ class PubSubMixin:
 
     class PubSubComponent:
         def __init__(self, client):
-            self.client = client
-            self.pubsub = self.client.summon(aioxmpp.PubSubClient)
+            self.client: ClientXMPP = client
+            self.client.register_plugin('xep_0060')
+            self.pubsub: XEP_0060 = self.client['xep_0060']
 
         # OWNER USE CASES
-
-        async def create(self, target_jid: str, target_node: Optional[str] = None):
+        async def create(
+            self,
+            target_jid: str,
+            target_node: Optional[str] = None,
+            config_form: Optional[Form] = None
+        ):
             """
             Create a new node at a service.
 
             Args:
                 target_jid (str): Address of the PubSub service.
                 target_node (str or None): Name of the PubSub node to create
+                config_form (Slixmpp Form): Dataform to configurate the node to create
             """
-            target_jid = JID.fromstr(target_jid)
-            return await self.pubsub.create(target_jid, target_node)
+            try:
+                return await self.pubsub.create_node(target_jid, target_node, config=config_form)
+            except IqError as e:
+                logger.error(f"Error creating node <{target_node}>: {e}")
 
         async def delete(
-                self,
-                target_jid: str,
-                target_node: Optional[str],
-                redirect_uri: Optional[str] = None,
+            self,
+            target_jid: str,
+            target_node: Optional[str],
         ):
             """
             Delete an existing node.
@@ -66,14 +70,14 @@ class PubSubMixin:
             Args:
                 target_jid (str): Address of the PubSub service.
                 target_node (str or None): Name of the PubSub node to delete.
-                redirect_uri (str or None): A URI to send to subscribers to indicate a replacement for the deleted node."""
-            target_jid = JID.fromstr(target_jid)
-            return await self.pubsub.delete(
-                target_jid, target_node, redirect_uri=redirect_uri
-            )
+            """
+            try:
+                return await self.pubsub.delete_node(target_jid, target_node)
+            except IqError as e:
+                logger.error(f"Error deleting node <{target_node}>: {e}")
 
         async def get_node_subscriptions(
-                self, target_jid: str, target_node: Optional[str]
+            self, target_jid: str, target_node: Optional[str]
         ) -> List[str]:
             """
             Return the subscriptions of other jids with a node.
@@ -82,9 +86,11 @@ class PubSubMixin:
                 target_jid (str): Address of the PubSub service.
                 target_node (str): Name of the node to query
             """
-            target_jid = JID.fromstr(target_jid)
-            result = await self.pubsub.get_node_subscriptions(target_jid, target_node)
-            return [str(x.jid) for x in result.payload.subscriptions]
+            try:
+                data: Iq = await self.pubsub.get_node_subscriptions(target_jid, target_node)
+                return [sub.attrib.get('jid') for sub in data.get_payload()[0][0]]
+            except IqError as e:
+                logger.error(f"Error retrieving owner subscriptions from node <{target_node}>: {e}")
 
         async def purge(self, target_jid: str, target_node: Optional[str]):
             """
@@ -94,8 +100,10 @@ class PubSubMixin:
                 target_jid (str): JID of the PubSub service
                 target_node (str): Name of the PubSub node
             """
-            target_jid = JID.fromstr(target_jid)
-            return await self.pubsub.purge(target_jid, target_node)
+            try:
+                return await self.pubsub.purge(target_jid, target_node)
+            except IqError as e:
+                logger.error(f"Error purging node <{target_node}>: {e}")
 
         async def get_nodes(self, target_jid: str, target_node: Optional[str] = None):
             """
@@ -105,29 +113,36 @@ class PubSubMixin:
                 target_jid (str): Address of the PubSub service.
                 target_node (str or None): Name of the collection node to query
             """
-            target_jid = JID.fromstr(target_jid)
-            return await self.pubsub.get_nodes(target_jid, target_node)
+            try:
+                res = await self.pubsub.get_nodes(target_jid, target_node)
+                return [tostring(item) for item in res.get_payload()[0]]
+            except IqError as e:
+                logger.error(f"Error deleting node <{target_node}>: {e}")
 
-        async def get_items(self, target_jid: str, target_node: Optional[str]):
+        async def get_items(self, target_jid: str, target_node: Optional[str]) -> List[str]:
             """
             Request all items at a service or collection node.
 
+            Returns a list of strings, each string representing an <item> element response
+            from the server
             Args:
                 target_jid (str): Addressof the PubSub service.
                 target_node (str): Name of the PubSub node.
             """
-            target_jid = JID.fromstr(target_jid)
-            request = await self.pubsub.get_items(target_jid, node=target_node)
-            return [item.registered_payload for item in request.payload.items]
+            try:
+                data: Iq = await self.pubsub.get_items(target_jid, target_node)
+                return [tostring(i[0]) for i in data.get_payload()[0][0]]
+            except IqError as e:
+                logger.error(f"Error retrieving items from node <{target_node}>: {e}")
 
         # SUBSCRIBER USE CASES
 
         async def subscribe(
-                self,
-                target_jid: str,
-                target_node: Optional[str] = None,
-                subscription_jid: Optional[str] = None,
-                config=None,
+            self,
+            target_jid: str,
+            target_node: Optional[str] = None,
+            subscription_jid: Optional[str] = None,
+            config=None,
         ):
             """
             Subscribe to a node.
@@ -138,23 +153,27 @@ class PubSubMixin:
                 subscription_jid (str): The address to subscribe to the service.
                 config (Data): Optional configuration of the subscription
             """
-            target_jid = JID.fromstr(target_jid)
-            subscription_jid = (
-                JID.fromstr(subscription_jid) if subscription_jid is not None else None
-            )
-            return await self.pubsub.subscribe(
-                target_jid,
-                target_node,
-                subscription_jid=subscription_jid,
-                config=config,
-            )
+            try:
+                res = await self.pubsub.subscribe(
+                    target_jid,
+                    target_node,
+                    subscribee=subscription_jid,
+                    options=config
+                )
+                try:
+                    return res, res.get_payload()[0][0].attrib.get('subid')
+                except KeyError:
+                    return res, None
+
+            except IqError as e:
+                logger.error(f"Error subscribing to node <{target_node}>: {e}")
 
         async def unsubscribe(
-                self,
-                target_jid: str,
-                target_node: Optional[str] = None,
-                subscription_jid: Optional[str] = None,
-                subid=None,
+            self,
+            target_jid: str,
+            target_node: Optional[str] = None,
+            subscription_jid: Optional[str] = None,
+            subid=None,
         ):
             """
             Unsubscribe from a node.
@@ -165,19 +184,21 @@ class PubSubMixin:
                 subscription_jid (str): The address to subscribe from the service.
                 subid (str): Unique ID of the subscription to remove.
             """
-            target_jid = JID.fromstr(target_jid)
-            subscription_jid = (
-                JID.fromstr(subscription_jid) if subscription_jid is not None else None
-            )
-            return await self.pubsub.unsubscribe(
-                target_jid, target_node, subscription_jid=subscription_jid, subid=subid
-            )
+            try:
+                return await self.pubsub.unsubscribe(
+                    target_jid,
+                    target_node,
+                    subscribee=subscription_jid,
+                    subid=subid,
+                )
+            except IqError as e:
+                logger.error(f"Error unsubscribing to node <{target_node}>: {e}")
 
         def set_on_item_published(self, callback):
-            self.pubsub.on_item_published.connect(callback)
+            self.client.add_event_handler('pubsub_publish', callback)
 
         def set_on_item_retracted(self, callback):
-            self.pubsub.on_item_retracted.connect(callback)
+            self.client.add_event_handler('pubsub_retract', callback)
 
         # PUBLISHER USE CASES
 
@@ -190,16 +211,18 @@ class PubSubMixin:
                 target_jid (str): Address of the PubSub service.
                 target_node (str): Name of the PubSub node to send a notify from.
             """
-            target_jid = JID.fromstr(target_jid)
-            return await self.pubsub.notify(target_jid, target_node)
+            try:
+                return await self.pubsub.publish(target_jid, target_node)
+            except IqError as e:
+                logger.error(f"Error notifying to node <{target_node}>: {e}")
 
         async def publish(
-                self,
-                target_jid: str,
-                target_node: str,
-                payload: str,
-                item_id: Optional[str] = None,
-        ):
+            self,
+            target_jid: str,
+            target_node: str,
+            payload: str,
+            item_id: Optional[str] = None,
+        ) -> Union[str, Iq]:
             """
             Publish an item to a node.
 
@@ -208,18 +231,21 @@ class PubSubMixin:
                 target_node (str): Name of the PubSub node to publish to.
                 payload (str): Payload to publish.
                 item_id (str or None): Item ID to use for the item.
+
+            Return:
+                The response of the server
             """
-            target_jid = JID.fromstr(target_jid)
-
-            payload_node = Payload()
-            payload_node.data = payload
-
-            return await self.pubsub.publish(
-                target_jid, target_node, payload_node, id_=item_id
-            )
+            try:
+                res = await self.pubsub.publish(target_jid, target_node, item_id, payload)
+                try:
+                    return res.get_payload()[0][0][0].get('id')
+                except (IndexError, KeyError):
+                    return res
+            except IqError as e:
+                logger.error(f"Error publishing item <{item_id}> to node <{target_node}>: {e}")
 
         async def retract(
-                self, target_jid: str, target_node: str, item_id: str, notify=False
+            self, target_jid: str, target_node: str, item_id: str, notify=False
         ):
             """
             Retract a previously published item from a node.
@@ -230,7 +256,7 @@ class PubSubMixin:
                 item_id (str): The ID of the item to retract.
                 notify (bool): Flag indicating whether subscribers shall be notified about the retraction.
             """
-            target_jid = JID.fromstr(target_jid)
-            return await self.pubsub.retract(
-                target_jid, target_node, item_id, notify=notify
-            )
+            try:
+                return await self.pubsub.retract(target_jid, target_node, item_id, notify)
+            except IqError as e:
+                logger.error(f"Error retracting item <{item_id}> to node <{target_node}>: {e}")
