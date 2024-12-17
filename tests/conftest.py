@@ -1,5 +1,4 @@
 import pytest
-from spade import quit_spade
 from spade.container import Container
 
 
@@ -12,9 +11,10 @@ def run_around_tests():
         container.__init__()
     yield
     # Code that will run after your test, for example:
-    quit_spade()
+    # quit_spade()
 
 
 @pytest.fixture(scope="module", autouse=True)
 def cleanup(request):
-    quit_spade()
+    # quit_spade()
+    pass
