@@ -2,7 +2,7 @@
 History
 =======
 
-0.1.4 (2024-12-16)
+0.2.0 (2024-12-17)
 ------------------
 * Migration to the `Slixmpp <https://pypi.org/project/slixmpp/>`_ library for PubSub operations
 * Refact and fix of the previous tests
