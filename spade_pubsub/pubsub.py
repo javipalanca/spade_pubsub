@@ -8,6 +8,7 @@ from slixmpp.stanza import Iq
 
 from loguru import logger
 from slixmpp.xmlstream import tostring
+from xml.etree.ElementTree import Element
 
 
 class PubSubMixin:
@@ -37,7 +38,8 @@ class PubSubMixin:
         def __init__(self, client):
             self.client: ClientXMPP = client
             self.client.register_plugin('xep_0060')
-            self.pubsub: XEP_0060 = self.client['xep_0060']
+            self.pubsub: XEP_0060 = self.client['xep_0060']  # Pubsub XEP
+            self.client.register_plugin('xep_0004')  # Dataforms XEP
 
         # OWNER USE CASES
         async def create(
@@ -55,7 +57,11 @@ class PubSubMixin:
                 config_form (Slixmpp Form): Dataform to configurate the node to create
             """
             try:
-                return await self.pubsub.create_node(target_jid, target_node, config=config_form)
+                res = await self.pubsub.create_node(target_jid, target_node, config=config_form)
+                if target_node and res['pubsub'] and res['pubsub']['create'] and res['pubsub']['create']['node']:
+                    return res['pubsub']['create']['node']
+                else:
+                    return target_node
             except IqError as e:
                 logger.error(f"Error creating node <{target_node}>: {e}")
 
@@ -88,7 +94,9 @@ class PubSubMixin:
             """
             try:
                 data: Iq = await self.pubsub.get_node_subscriptions(target_jid, target_node)
-                return [sub.attrib.get('jid') for sub in data.get_payload()[0][0]]
+                if (data['pubsub_owner'] and data['pubsub_owner']['subscriptions']
+                    and data['pubsub_owner']['subscriptions']['node'] == target_node):
+                    return list(set([sub['jid'] for sub in data['pubsub_owner']['subscriptions']['substanzas']]))
             except IqError as e:
                 logger.error(f"Error retrieving owner subscriptions from node <{target_node}>: {e}")
 
@@ -115,7 +123,12 @@ class PubSubMixin:
             """
             try:
                 res = await self.pubsub.get_nodes(target_jid, target_node)
-                return [tostring(item) for item in res.get_payload()[0]]
+                for index, element in enumerate(res.get_payload()):
+                    if element.tag == '{http://jabber.org/protocol/disco#items}query':
+                        return [(item.attrib.get('node'), item.attrib.get('name'))
+                                for item in res.get_payload()[index].findall(
+                                "{http://jabber.org/protocol/disco#items}item"
+                            )]
             except IqError as e:
                 logger.error(f"Error deleting node <{target_node}>: {e}")
 
@@ -131,7 +144,9 @@ class PubSubMixin:
             """
             try:
                 data: Iq = await self.pubsub.get_items(target_jid, target_node)
-                return [tostring(i[0]) for i in data.get_payload()[0][0]]
+                if data['pubsub'] and data['pubsub']['items']:
+                    if data['pubsub']['items']['node'] == target_node:
+                        return [i.get_payload().text for i in data['pubsub']['items']['substanzas']]
             except IqError as e:
                 logger.error(f"Error retrieving items from node <{target_node}>: {e}")
 
@@ -220,7 +235,7 @@ class PubSubMixin:
             self,
             target_jid: str,
             target_node: str,
-            payload: str,
+            payload: Union[Element, str],
             item_id: Optional[str] = None,
         ) -> Union[str, Iq]:
             """
@@ -229,14 +244,17 @@ class PubSubMixin:
             Args:
                 target_jid (str): Address of the PubSub service.
                 target_node (str): Name of the PubSub node to publish to.
-                payload (str): Payload to publish.
+                payload (Element | str): Payload to publish.
                 item_id (str or None): Item ID to use for the item.
 
             Return:
                 The response of the server
             """
             try:
-                res = await self.pubsub.publish(target_jid, target_node, item_id, payload)
+                payload_stanza = Element('payload', attrib={'xmlns': 'spade.pubsub'})
+                payload_stanza.text = payload
+
+                res = await self.pubsub.publish(target_jid, target_node, item_id, payload_stanza)
                 try:
                     return res.get_payload()[0][0][0].get('id')
                 except (IndexError, KeyError):
