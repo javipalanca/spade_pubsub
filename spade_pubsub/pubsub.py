@@ -58,7 +58,11 @@ class PubSubMixin:
             """
             try:
                 res = await self.pubsub.create_node(target_jid, target_node, config=config_form)
-                if target_node and res['pubsub'] and res['pubsub']['create'] and res['pubsub']['create']['node']:
+                if (target_node
+                    and res['pubsub']
+                    and res['pubsub']['create']
+                    and res['pubsub']['create']['node']
+                ):
                     return res['pubsub']['create']['node']
                 else:
                     return target_node
@@ -94,8 +98,10 @@ class PubSubMixin:
             """
             try:
                 data: Iq = await self.pubsub.get_node_subscriptions(target_jid, target_node)
-                if (data['pubsub_owner'] and data['pubsub_owner']['subscriptions']
-                    and data['pubsub_owner']['subscriptions']['node'] == target_node):
+                if (data['pubsub_owner']
+                    and data['pubsub_owner']['subscriptions']
+                    and data['pubsub_owner']['subscriptions']['node'] == target_node
+                ):
                     return list(set([sub['jid'] for sub in data['pubsub_owner']['subscriptions']['substanzas']]))
             except IqError as e:
                 logger.error(f"Error retrieving owner subscriptions from node <{target_node}>: {e}")
@@ -122,13 +128,13 @@ class PubSubMixin:
                 target_node (str or None): Name of the collection node to query
             """
             try:
-                res = await self.pubsub.get_nodes(target_jid, target_node)
-                for index, element in enumerate(res.get_payload()):
+                nodes = await self.pubsub.get_nodes(target_jid, target_node)
+                for index, element in enumerate(nodes.get_payload()):
                     if element.tag == '{http://jabber.org/protocol/disco#items}query':
                         return [(item.attrib.get('node'), item.attrib.get('name'))
-                                for item in res.get_payload()[index].findall(
+                                for item in nodes.get_payload()[index].findall(
                                 "{http://jabber.org/protocol/disco#items}item"
-                            )]
+                                )]
             except IqError as e:
                 logger.error(f"Error deleting node <{target_node}>: {e}")
 
@@ -169,19 +175,17 @@ class PubSubMixin:
                 config (Data): Optional configuration of the subscription
             """
             try:
-                res = await self.pubsub.subscribe(
+                sub = await self.pubsub.subscribe(
                     target_jid,
                     target_node,
                     subscribee=subscription_jid,
                     options=config
                 )
-                try:
-                    return res, res.get_payload()[0][0].attrib.get('subid')
-                except KeyError:
-                    return res, None
-
+                if sub['pubsub'] and sub['pubsub']['subscription']:
+                    return sub['pubsub']['subscription']['subid']
             except IqError as e:
                 logger.error(f"Error subscribing to node <{target_node}>: {e}")
+
 
         async def unsubscribe(
             self,
@@ -227,7 +231,7 @@ class PubSubMixin:
                 target_node (str): Name of the PubSub node to send a notify from.
             """
             try:
-                return await self.pubsub.publish(target_jid, target_node)
+                await self.pubsub.publish(target_jid, target_node)
             except IqError as e:
                 logger.error(f"Error notifying to node <{target_node}>: {e}")
 
@@ -255,12 +259,14 @@ class PubSubMixin:
                 payload_stanza.text = payload
 
                 res = await self.pubsub.publish(target_jid, target_node, item_id, payload_stanza)
-                try:
-                    return res.get_payload()[0][0][0].get('id')
-                except (IndexError, KeyError):
-                    return res
+                if (item_id is None
+                    and res['pubsub']
+                    and res['pubsub']['publish']
+                    and res['pubsub']['publish']['item']
+                ):
+                    return res['pubsub']['publish']['item']['id']
             except IqError as e:
-                logger.error(f"Error publishing item <{item_id}> to node <{target_node}>: {e}")
+                logger.error(f"Error publishing item <{item_id or 'undefined'}> to node <{target_node}>: {e}")
 
         async def retract(
             self, target_jid: str, target_node: str, item_id: str, notify=False
