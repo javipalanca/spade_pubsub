@@ -2,6 +2,10 @@
 History
 =======
 
+0.1.5 (2025-01-27)
+------------------
+* Refact code to imitate the response format of Aioxmpp
+
 0.1.4 (2024-12-16)
 ------------------
 * Migration to the `Slixmpp <https://pypi.org/project/slixmpp/>`_ library for PubSub operations

@@ -1,14 +1,12 @@
+from loguru import logger
 from typing import Optional, List, Union
+from xml.etree.ElementTree import Element
 
 from slixmpp import ClientXMPP
 from slixmpp.exceptions import IqError
 from slixmpp.plugins.xep_0004.stanza.form import Form
 from slixmpp.plugins.xep_0060 import XEP_0060
 from slixmpp.stanza import Iq
-
-from loguru import logger
-from slixmpp.xmlstream import tostring
-from xml.etree.ElementTree import Element
 
 
 class PubSubMixin:
@@ -136,7 +134,7 @@ class PubSubMixin:
                                 "{http://jabber.org/protocol/disco#items}item"
                                 )]
             except IqError as e:
-                logger.error(f"Error deleting node <{target_node}>: {e}")
+                logger.error(f"Error retrieving nodes: {e}")
 
         async def get_items(self, target_jid: str, target_node: Optional[str]) -> List[str]:
             """
