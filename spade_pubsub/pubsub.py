@@ -241,6 +241,7 @@ class PubSubMixin:
             target_node: str,
             payload: Union[Element, str],
             item_id: Optional[str] = None,
+            ifrom: str = None
         ) -> Union[str, Iq]:
             """
             Publish an item to a node.
@@ -258,7 +259,7 @@ class PubSubMixin:
                 payload_stanza = Element('payload', attrib={'xmlns': 'spade.pubsub'})
                 payload_stanza.text = payload
 
-                res = await self.pubsub.publish(target_jid, target_node, item_id, payload_stanza)
+                res = await self.pubsub.publish(target_jid, target_node, item_id, payload_stanza, ifrom=ifrom)
                 if (item_id is None
                     and res['pubsub']
                     and res['pubsub']['publish']
