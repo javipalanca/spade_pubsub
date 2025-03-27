@@ -10,7 +10,7 @@ from .factories import PubSubAgentFactory
 
 pytest_plugins = ('pytest_asyncio',)
 
-XMPP_SERVER = "araylop-vrain"  # Make sure there is an XMPP server available at this address
+XMPP_SERVER = "localhost"  # Make sure there is an XMPP server available at this address
 
 
 AGENT_JID = f"pubsuba@{XMPP_SERVER}"
