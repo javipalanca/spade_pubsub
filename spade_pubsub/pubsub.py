@@ -95,12 +95,14 @@ class PubSubMixin:
                 target_node (str): Name of the node to query
             """
             try:
-                data: Iq = await self.pubsub.get_node_subscriptions(target_jid, target_node)
-                if (data['pubsub_owner']
-                    and data['pubsub_owner']['subscriptions']
-                    and data['pubsub_owner']['subscriptions']['node'] == target_node
+                data: Iq = await self.pubsub.get_subscriptions(target_jid, target_node)
+                if (data['pubsub']
+                    and data['pubsub']['subscriptions']
+                    and any(i['node'] == target_node for i in data['pubsub']['subscriptions'])
                 ):
-                    return list(set([sub['jid'] for sub in data['pubsub_owner']['subscriptions']['substanzas']]))
+                    return list(set([sub['jid'] for sub in data['pubsub']['subscriptions']['substanzas']]))
+                else:
+                    return []
             except IqError as e:
                 logger.error(f"Error retrieving owner subscriptions from node <{target_node}>: {e}")
 
