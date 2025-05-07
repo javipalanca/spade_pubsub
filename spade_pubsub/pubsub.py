@@ -129,14 +129,10 @@ class PubSubMixin:
             """
             try:
                 nodes = await self.pubsub.get_nodes(target_jid, target_node)
-                for index, element in enumerate(nodes.get_payload()):
-                    if element.tag == '{http://jabber.org/protocol/disco#items}query':
-                        return [(item.attrib.get('node'), item.attrib.get('name'))
-                                for item in nodes.get_payload()[index].findall(
-                                "{http://jabber.org/protocol/disco#items}item"
-                                )]
+                return [{'jid': i[0], 'node': i[1], 'name': i[2]} for i in nodes['disco_items']['items']]
             except IqError as e:
                 logger.error(f"Error retrieving nodes: {e}")
+                return []
 
         async def get_items(self, target_jid: str, target_node: Optional[str]) -> List[str]:
             """
