@@ -140,11 +140,11 @@ class PubSubMixin:
             """
             Request all items at a service or collection node.
 
-            Returns a list of strings, each string representing an <item> element response
-            from the server
             Args:
-                target_jid (str): Addressof the PubSub service.
-                target_node (str): Name of the PubSub node.
+                target_jid (str): Address of the PubSub service.
+                target_node (str or None): Name of the PubSub node.
+            Return:
+                list of strings: Each string represents an <item> element response from the server.
             """
             try:
                 data: Iq = await self.pubsub.get_items(target_jid, target_node)
