@@ -1,3 +1,1 @@
-spade>=3.3.3
-slixmpp>=1.8.5
-loguru==0.5.3
+spade>=4.0.3

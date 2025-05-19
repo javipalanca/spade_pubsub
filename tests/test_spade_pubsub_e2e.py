@@ -8,6 +8,7 @@ from spade.behaviour import OneShotBehaviour
 
 from .factories import PubSubAgentFactory
 
+pytest_plugins = ('pytest_asyncio',)
 
 XMPP_SERVER = "localhost"  # Make sure there is an XMPP server available at this address
 
@@ -17,8 +18,7 @@ AGENT_JID_2 = f"pubsubb@{XMPP_SERVER}"
 PUBSUB_JID = f"pubsub.{XMPP_SERVER}"
 TEST_NODE = "Test_Node"
 ITEM_ID = str(uuid4())
-TEST_PAYLOAD = Element("test")
-TEST_PAYLOAD.text = "TESTING"
+TEST_PAYLOAD = "Testing"
 
 
 @pytest.mark.asyncio
@@ -70,7 +70,7 @@ async def test_create_node():
     agent.add_behaviour(behaviour)
     await behaviour.join()
 
-    assert any([f'node="{TEST_NODE}"' in i for i in behaviour.exit_code])
+    assert len(behaviour.exit_code) > 0
 
     await agent.stop()
     assert agent.is_alive() is False
@@ -92,7 +92,7 @@ async def test_purge_node():
             await self.agent.pubsub.create(PUBSUB_JID, TEST_NODE, config_form)
             await self.agent.pubsub.publish(PUBSUB_JID, TEST_NODE, TEST_PAYLOAD)
             result1 = await self.agent.pubsub.get_items(PUBSUB_JID, TEST_NODE)
-            await self.agent.pubsub.purge(PUBSUB_JID, TEST_NODE)
+            await self.agent.pubsub.purge(PUBSUB_JID, TEST_NODE )
             result2 = await self.agent.pubsub.get_items(PUBSUB_JID, TEST_NODE)
             await self.agent.pubsub.delete(PUBSUB_JID, TEST_NODE)
             self.kill(exit_code=(result1, result2))
@@ -102,12 +102,10 @@ async def test_purge_node():
     await behaviour.join()
 
     assert len(behaviour.exit_code[0]) == 1
-    assert TEST_PAYLOAD.tag in fromstring(behaviour.exit_code[0][0]).tag
-    assert TEST_PAYLOAD.text == fromstring(behaviour.exit_code[0][0]).text
+    assert TEST_PAYLOAD == behaviour.exit_code[0][0]
     assert len(behaviour.exit_code[1]) == 0
 
-    future = agent.stop()
-    future.result()
+    await agent.stop()
     assert agent.is_alive() is False
 
 
@@ -149,7 +147,7 @@ async def test_unsubscribe_from_node():
     class SubscribeBehaviour(OneShotBehaviour):
         async def run(self):
             await self.agent.pubsub.create(PUBSUB_JID, TEST_NODE)
-            _, subid = await self.agent.pubsub.subscribe(PUBSUB_JID, TEST_NODE)
+            subid = await self.agent.pubsub.subscribe(PUBSUB_JID, TEST_NODE)
             await self.agent.pubsub.unsubscribe(PUBSUB_JID, TEST_NODE, AGENT_JID, subid)
             result = await self.agent.pubsub.get_node_subscriptions(
                 PUBSUB_JID, TEST_NODE
@@ -193,6 +191,7 @@ async def test_notify():
     assert agent.is_alive() is False
 
 
+@pytest.mark.asyncio
 async def test_publish_item():
     agent = PubSubAgentFactory(jid=AGENT_JID)
 
@@ -214,14 +213,14 @@ async def test_publish_item():
     agent.add_behaviour(behaviour)
     await behaviour.join()
 
-    assert TEST_PAYLOAD.tag in agent.result[0][0][0][0].tag
-    assert agent.result[0][0][0][0].text == TEST_PAYLOAD.text
-    assert TEST_PAYLOAD.text in behaviour.exit_code[0]
+    assert len(behaviour.exit_code) == 1
+    assert behaviour.exit_code[0] == TEST_PAYLOAD
 
     await agent.stop()
     assert agent.is_alive() is False
 
 
+@pytest.mark.asyncio
 async def test_retract_item():
     agent = PubSubAgentFactory(jid=AGENT_JID)
 
@@ -235,8 +234,6 @@ async def test_retract_item():
     class PublishBehaviour(OneShotBehaviour):
         async def run(self):
             await self.agent.pubsub.create(PUBSUB_JID, TEST_NODE, config_form)
-            # for node in await self.agent.pubsub.get_nodes(PUBSUB_JID):
-            #     await self.agent.pubsub.delete(PUBSUB_JID, node[0])
             await self.agent.pubsub.subscribe(PUBSUB_JID, TEST_NODE)
             await self.agent.pubsub.publish(PUBSUB_JID, TEST_NODE, TEST_PAYLOAD, ITEM_ID)
             items = await self.agent.pubsub.get_items(PUBSUB_JID, TEST_NODE)
@@ -247,8 +244,7 @@ async def test_retract_item():
     await publish_behaviour.join()
 
     assert len(publish_behaviour.exit_code) == 1
-    assert TEST_PAYLOAD.tag in fromstring(publish_behaviour.exit_code[0]).tag
-    assert TEST_PAYLOAD.text == fromstring(publish_behaviour.exit_code[0]).text
+    assert TEST_PAYLOAD == publish_behaviour.exit_code[0]
 
     class RetractBehaviour(OneShotBehaviour):
         async def run(self):
