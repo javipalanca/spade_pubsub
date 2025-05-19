@@ -51,7 +51,18 @@ SPADE Plugin for PubSub support.
 Features
 --------
 
-* TODO
+- **Node Creation and Management**: Agents can create, delete, and purge nodes on a PubSub server, allowing flexible management of communication channels.
+
+- **Subscription to Nodes**: Agents have the capability to subscribe and unsubscribe from specific nodes, facilitating the reception of relevant updates.
+
+- **Item Publication**: Agents can publish items to subscribed nodes, efficiently distributing information to all subscribers.
+
+- **Item Management**: It's possible to retrieve all items published on a node and retract specific items when necessary.
+
+- **Notifications Without Items**: Agents can send notifications to all subscribers of a node without the need to publish an item, useful for alerts or signals.
+
+- **Custom Callbacks**: Functions can be registered to handle events such as item publication or retraction, allowing personalized responses to these events.
+
 
 Credits
 -------
