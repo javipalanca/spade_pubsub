@@ -134,21 +134,20 @@ class PubSubMixin:
                 logger.error(f"Error retrieving nodes: {e}")
                 return []
 
-        async def get_items(self, target_jid: str, target_node: Optional[str]) -> List[str]:
+        async def get_items(self, target_jid: str, target_node: Optional[str]) -> List[tuple[str, str]]:
             """
             Request all items at a service or collection node.
 
-            Returns a list of strings, each string representing an <item> element response
-            from the server
+            Returns a list of tuples, in the format (id, payload)
             Args:
                 target_jid (str): Addressof the PubSub service.
                 target_node (str): Name of the PubSub node.
             """
             try:
                 data: Iq = await self.pubsub.get_items(target_jid, target_node)
-                if data['pubsub'] and data['pubsub']['items']:
+                if data['pubsub'] and data:
                     if data['pubsub']['items']['node'] == target_node:
-                        return [i.get_payload().text for i in data['pubsub']['items']['substanzas']]
+                        return [(item['id'], item['payload']) for item in data['pubsub']['items']]
             except IqError as e:
                 logger.error(f"Error retrieving items from node <{target_node}>: {e}")
 
@@ -181,7 +180,6 @@ class PubSubMixin:
                     return sub['pubsub']['subscription']['subid']
             except IqError as e:
                 logger.error(f"Error subscribing to node <{target_node}>: {e}")
-
 
         async def unsubscribe(
             self,
