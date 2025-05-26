@@ -2,6 +2,7 @@
 
 """Tests for `spade_pubsub` package."""
 import asyncio
+import os.path
 import sys
 
 import loguru
@@ -26,18 +27,23 @@ PUBSUB_JID = f"pubsub.{XMPP_SERVER}"
 TEST_NODE = "Test_Node"
 ITEM_ID = str(uuid4())
 TEST_PAYLOAD = "Testing"
+TEST_PAYLOAD2 = "Testing2"
 
 
-@pytest_asyncio.fixture
-async def server():
+@pytest_asyncio.fixture(scope="module")
+def event_loop():
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest_asyncio.fixture(scope="module")
+async def server(event_loop):
     loguru.logger.remove()
-    loguru.logger.add(sys.stdout, level="TRACE")
 
-    server = Server(Parameters(
-        database_in_memory=False,
-        database_purge=True
-    ))
-    task = asyncio.create_task(server.start())
+    server = Server(Parameters(database_in_memory=True))
+
+    task = event_loop.create_task(server.start())
     yield task
     task.cancel()
     try:
@@ -75,7 +81,6 @@ async def test_delete_node(server):
 
     await agent.stop()
     assert agent.is_alive() is False
-
 
 
 @pytest.mark.asyncio
@@ -122,6 +127,7 @@ async def test_purge_node(server):
         async def run(self):
             await self.agent.pubsub.create(PUBSUB_JID, TEST_NODE, config_form)
             await self.agent.pubsub.publish(PUBSUB_JID, TEST_NODE, TEST_PAYLOAD)
+            await self.agent.pubsub.publish(PUBSUB_JID, TEST_NODE, TEST_PAYLOAD2)
             result1 = await self.agent.pubsub.get_items(PUBSUB_JID, TEST_NODE)
             await self.agent.pubsub.purge(PUBSUB_JID, TEST_NODE )
             result2 = await self.agent.pubsub.get_items(PUBSUB_JID, TEST_NODE)
@@ -132,9 +138,11 @@ async def test_purge_node(server):
     agent.add_behaviour(behaviour)
     await behaviour.join()
 
-    assert len(behaviour.exit_code[0]) == 1
-    assert TEST_PAYLOAD == behaviour.exit_code[0][0]
-    assert len(behaviour.exit_code[1]) == 0
+    before, after = behaviour.exit_code
+    assert len(before) == 2
+    assert TEST_PAYLOAD in [i[1].text for i in before]
+    assert TEST_PAYLOAD2 in [i[1].text for i in before]
+    assert len(after) == 0
 
     await agent.stop()
     assert agent.is_alive() is False
@@ -245,7 +253,7 @@ async def test_publish_item(server):
     await behaviour.join()
 
     assert len(behaviour.exit_code) == 1
-    assert behaviour.exit_code[0] == TEST_PAYLOAD
+    assert behaviour.exit_code[0][1].text == TEST_PAYLOAD
 
     await agent.stop()
     assert agent.is_alive() is False
@@ -268,14 +276,14 @@ async def test_retract_item(server):
             await self.agent.pubsub.subscribe(PUBSUB_JID, TEST_NODE)
             await self.agent.pubsub.publish(PUBSUB_JID, TEST_NODE, TEST_PAYLOAD, ITEM_ID)
             items = await self.agent.pubsub.get_items(PUBSUB_JID, TEST_NODE)
-            self.kill(exit_code=items)
+            self.kill(exit_code=(items))
 
     publish_behaviour = PublishBehaviour()
     agent.add_behaviour(publish_behaviour)
     await publish_behaviour.join()
 
     assert len(publish_behaviour.exit_code) == 1
-    assert TEST_PAYLOAD == publish_behaviour.exit_code[0]
+    assert TEST_PAYLOAD == publish_behaviour.exit_code[0][1].text
 
     class RetractBehaviour(OneShotBehaviour):
         async def run(self):
