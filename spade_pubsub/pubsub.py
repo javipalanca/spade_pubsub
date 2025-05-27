@@ -161,8 +161,9 @@ class PubSubMixin:
 
             Returns a list of tuples, in the format (id, payload)
             Args:
-                target_jid (str): Addressof the PubSub service.
-                target_node (str): Name of the PubSub node.
+                target_jid (str): Address of the PubSub service.
+                target_node (str or None): Name of the PubSub node.
+
             """
             try:
                 data: Iq = await self.pubsub.get_items(target_jid, target_node)

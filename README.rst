@@ -42,6 +42,19 @@ SPADE PubSub
 
 
 SPADE Plugin for PubSub support.
+SPADE PubSub is a plugin that extends the SPADE (Smart Python Agent Development Environment) framework with publish-subscribe communication capabilities. It enables SPADE agents to leverage the XMPP PubSub extension for efficient, decoupled communication patterns in multi-agent systems.
+
+Purpose and Scope
+-----------------
+This plugin provides a clean, agent-oriented interface to the XMPP Publish-Subscribe Extension (XEP-0060), allowing SPADE agents to:
+
+* Create and manage PubSub nodes
+* Subscribe to nodes of interest
+* Publish content to nodes
+* Receive notifications when content is published
+* Manage subscriptions and published items
+
+SPADE PubSub serves as a bridging layer between SPADE's agent-oriented architecture and the underlying XMPP Pu
 
 
 * Free software: MIT license
@@ -51,7 +64,18 @@ SPADE Plugin for PubSub support.
 Features
 --------
 
-* TODO
+- **Node Creation and Management**: Agents can create, delete, and purge nodes on a PubSub server, allowing flexible management of communication channels.
+
+- **Subscription to Nodes**: Agents have the capability to subscribe and unsubscribe from specific nodes, facilitating the reception of relevant updates.
+
+- **Item Publication**: Agents can publish items to subscribed nodes, efficiently distributing information to all subscribers.
+
+- **Item Management**: It's possible to retrieve all items published on a node and retract specific items when necessary.
+
+- **Notifications Without Items**: Agents can send notifications to all subscribers of a node without the need to publish an item, useful for alerts or signals.
+
+- **Custom Callbacks**: Functions can be registered to handle events such as item publication or retraction, allowing personalized responses to these events.
+
 
 Credits
 -------

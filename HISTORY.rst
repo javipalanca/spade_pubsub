@@ -2,10 +2,11 @@
 History
 =======
 
-0.2.1 (2025-02-17)
+0.2.1 (2025-05-19)
 ------------------
 
-* Refactor code to imitate the response format of Aioxmpp
+* Refactor code to imitate the response format of aioxmpp
+* Improve documentation
 
 0.2.0 (2024-12-17)
 ------------------
