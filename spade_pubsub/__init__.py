@@ -7,4 +7,4 @@ __version__ = "0.2.0"
 
 from .pubsub import PubSubMixin
 
-__all__ = ["PubSubMixin"]
+__all__ = ["PubSubMixin", "__version__"]

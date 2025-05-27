@@ -1,0 +1,13 @@
+[run]
+source = spade_pubsub
+branch = True
+
+[report]
+omit =
+    */tests/*
+    */__init__.py
+
+[paths]
+source =
+    spade_pubsub
+    */spade_pubsub
