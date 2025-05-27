@@ -1,20 +1,33 @@
+import asyncio
 import pytest
-from spade.container import Container
+import pytest_asyncio
+
+from loguru import logger
+from pyjabber.server import Server, Parameters
 
 
-# @pytest.fixture(autouse=True)
-# def run_around_tests():
-#     # Code that will run before your test, for example:
-#     # A test function will be run at this point
-#     container = Container()
-#     if not container.is_running:
-#         container.__init__()
-#     yield
-#     # Code that will run after your test, for example:
-#     # quit_spade()
-#
-#
-# @pytest.fixture(scope="module", autouse=True)
-# def cleanup(request):
-#     # quit_spade()
-#     pass
+@pytest.fixture(scope="module", autouse=True)
+def cleanup(request):
+    pass
+
+
+@pytest_asyncio.fixture(scope="module")
+def event_loop():
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest_asyncio.fixture(scope="module")
+async def server(event_loop):
+    logger.remove()
+
+    server = Server(Parameters(database_in_memory=True))
+
+    task = event_loop.create_task(server.start())
+    yield task
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass

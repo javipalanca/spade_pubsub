@@ -1,25 +1,17 @@
 #!/usr/bin/env python
 
 """Tests for `spade_pubsub` package."""
-import asyncio
-import os.path
-import sys
-
-import loguru
 import pytest
+
 from uuid import uuid4
-from xml.etree.ElementTree import Element, fromstring
 from spade.behaviour import OneShotBehaviour
-from spade import run
 from .factories import PubSubAgentFactory
-from pyjabber.server import Server, Parameters
-import pytest_asyncio
+
 
 pytest_plugins = ('pytest_asyncio',)
 
 XMPP_SERVER = "localhost"
 AGENT_DOMAIN = 'localhost'
-
 
 AGENT_JID = f"pubsuba@{AGENT_DOMAIN}"
 AGENT_JID_2 = f"pubsubb@{AGENT_DOMAIN}"
@@ -28,28 +20,6 @@ TEST_NODE = "Test_Node"
 ITEM_ID = str(uuid4())
 TEST_PAYLOAD = "Testing"
 TEST_PAYLOAD2 = "Testing2"
-
-
-@pytest_asyncio.fixture(scope="module")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest_asyncio.fixture(scope="module")
-async def server(event_loop):
-    loguru.logger.remove()
-
-    server = Server(Parameters(database_in_memory=True))
-
-    task = event_loop.create_task(server.start())
-    yield task
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
 
 
 @pytest.mark.asyncio
