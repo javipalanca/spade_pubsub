@@ -8,8 +8,6 @@ from spade.behaviour import OneShotBehaviour
 from .factories import PubSubAgentFactory
 
 
-pytest_plugins = ('pytest_asyncio',)
-
 XMPP_SERVER = "localhost"
 AGENT_DOMAIN = 'localhost'
 
