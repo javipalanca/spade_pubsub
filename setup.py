@@ -46,7 +46,7 @@ setup(
     include_package_data=True,
     keywords='spade_pubsub',
     name='spade_pubsub',
-    packages=find_packages(include=['spade_pubsub', 'spade_pubsub.*']),
+    packages=find_packages(where='.'),
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
